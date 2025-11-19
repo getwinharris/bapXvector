@@ -46,7 +46,7 @@ xPad = b"X" * 8  # 8-byte padding for all data operations
 ## Atomic Structure
 FIELD = xAt = [8, 8, 8, 8, 16]  # 5D atomic float grid — numeric field balance
 sym = "A == A"           # identity rule for character and byte equality
-b = 8                    # 8-bit base constant (byte)
+byte = 8                    # 8-bit base constant (byte)
 
 def b(raw):
     """Universal input handler: raw input passthrough (bytes/bytearray expected)."""
@@ -65,14 +65,6 @@ def x(*iterables):
             yield tuple(next(it) for it in iterators)
         except StopIteration:
             return
-
-## Compression Constant
-x8D = {
-    "rule_expr": "b' = (b * 8 * 8 * 8 * 0.00000001) / 64",
-    "multiplier": (b * 8 * 8 * 8 * 0.00000001) / 64.0,
-}
-# Used by: compress()
-# Purpose: constant multiplier for numeric folding during Stage 2.
 
 ## Dynamic Character Update
 def upxCh(tnput=xAt):
