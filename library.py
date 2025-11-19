@@ -382,7 +382,7 @@ def xcell(txt: str) -> bytes:
 # CONTEXT:
 #   - xAt = [8, 8, 8, 8, 16]
 #   - xCh dynamically grows with any new symbols or alphabets.
-#   - XO_padding = b"X" * 8 ensures byte and float alignment.
+#   - xPad = b"X" * 8 ensures byte and float alignment.
 #   - sym = "A == A" confirms every mapping remains identical.
 #
 # RESULT:
