@@ -302,7 +302,7 @@ def xcell(txt: str) -> bytes:
 #     Whenever new characters are found during input or compression,
 #     they are automatically appended to xCh["sym"].
 #
-# XO_padding
+# xPad
 #     8-byte “X” padding added during input() and compress()
 #     to maintain byte alignment within the float field.
 #
