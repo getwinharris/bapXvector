@@ -1,28 +1,64 @@
+"""
+bapX Core Library (library.py)
+
+PURPOSE:
+This module defines the core logic, custom database engine (xDB),
+and proprietary data handling pipelines for the bapX ecosystem.
+It operates without standard encodings (UTF-8, JSON) using a unique
+character mapping and float field balance for extreme efficiency.
+
+USAGE FOR DEVELOPERS:
+
+1. Import the module into your Python script:
+
+   import library
+
+   # OR use an alias (recommended):
+   import library as bx
+
+2. Access core components and functions directly:
+
+   # Accessing constants/classes:
+   print(bx.xAt)
+   container = bx.xCnt("my_data_id")
+
+   # Using high-level pipelines:
+   compressed_bytes = bx.xCreate(b"Hello World")
+   print(compressed_bytes)
+
+   # Using the DB engine:
+   settings_rows = bx.xSdb_read("creator")
+   bx.xMdb_insert("user_session", b"ts", b"attach", b"purpose", b"sentence")
+
+3. Refer to the documentation sections below for internal mechanics (xCh, xAt, compression formulas).
+"""
+
 # library.py — bapX Core Logic
 
 # Purpose: Defines character mapping, float field, compression, and I/O stages.
 
-## [1] Core Constants
+## Core Constants
 xCh = {
     "sym": ''' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?-_/`\@#%&*(^)+=[|]}<>•{ →'←↔~↑↓⇄⇆⇋⇌⟷⟺≈≠≤≥±∞∴∵ ⚛︎⊕⊗⊙∑∏√πΩµλφψΔΣΘαβγδεζηθρτχω ©®™€£¥₹§¶° ○●◉◯□■▢△▲▽▼◆◇▷◁⊿⌘ ║║═╔╗╚╝╠╣╦╩╬░▒▓█▌▐▀▄▖▗▘▙▚▛▜▝▞▟ ⨀⨂⨁⟡⋈⋇⋯⋮⋱∷∵∴∎ Ġ あいうえおアイウエオабвгдΑΒΓΔΕ    '''
 }
 xPad = b"X" * 8  # 8-byte padding for all data operations
 
-## [2] Atomic Structure
-xAt = [8, 8, 8, 8, 16]   # 5D atomic float grid — numeric field balance
+## Atomic Structure
+FIELD = xAt = [8, 8, 8, 8, 16]  # 5D atomic float grid — numeric field balance
 sym = "A == A"           # identity rule for character and byte equality
 b = 8                    # 8-bit base constant (byte)
+
+def b(raw):
+    """Universal input handler: raw input passthrough (bytes/bytearray expected)."""
+    return raw
+
 
 # Used by: library.py, xformat.py, brain.py
 # Purpose: foundational constants for compression, input, and file balance.
 
-## [3] Pair Generator
+## Pair Generator
 def x(*iterables):
-    """Character pair generator (like zip, used in xFile and I/O mapping).
-
-    Used by: brain.py, xformat.py
-    Purpose: iterate character pairs or byte pairs when processing .x files.
-    """
+    """Character pair generator (like zip, used in xFile and I/O mapping)."""
     iterators = [iter(it) for it in iterables]
     while True:
         try:
@@ -30,101 +66,68 @@ def x(*iterables):
         except StopIteration:
             return
 
-## [4] Compression Constant
+## Compression Constant
 x8D = {
     "rule_expr": "b' = (b * 8 * 8 * 8 * 0.00000001) / 64",
-    "multiplier": (8 * 8 * 8 * 0.00000001) / 64.0,
+    "multiplier": (b * 8 * 8 * 8 * 0.00000001) / 64.0,
 }
 # Used by: compress()
 # Purpose: constant multiplier for numeric folding during Stage 2.
 
-## [5] Dynamic Character Update
+## Dynamic Character Update
 def upxCh(tnput=xAt):
-    """Adds new characters to xCh if missing.
-
-    Used by: inout(), compress()
-    Purpose: updates character map dynamically when new language/symbol detected.
-    Example:
-        update_sym("こんにちは")  # adds multi language chars and symbols if missing
-    """
+    """Adds new characters to xCh if missing."""
     for c in tnput:
         if c not in xCh['sym']:
             xCh['sym'] += c
     return tnput
 
-## [6] Stage 1 & 3 — Input / Output
+## Stage 1 & 3 — Input / Output
 def inout(tnput=xAt):
-    """inout() —ligns bytes/floats and updates character mapping.
-
-    Used by: brain.py (conversation processing), app.py (xFile creation),
-             xformat.py (file read/write), skin.py (interface encoding)
-    Purpose: normalize characters, bytes, or numeric input to float balance.
-
-    """
+    """inout() —ligns bytes/floats and updates character mapping."""
     tnput = upxCh(tnput)
     if isinstance(tnput, (bytes, bytearray)):
         tnput += xPad
         return tnput
     if not isinstance(tnput, str):
+        # The exact original formula
         tnput = [(b * 8) / 8 for b in tnput]
         return tnput
     return tnput
 
-## [7] Stage 2 — Compression
+## Stage 2 — Compression
 def compress(tnput=xAt):
-    """Stage 2 — Compresses data using 8×8×8×8×16 float.
-
-    Used by: xformat.py (xFile creation), app.py (brain.x and module pulls)
-    Purpose: folds numeric or byte data for storage in .x format.
-
-    """
+    """Stage 2 — Compresses data using 8×8×8×8×16 float."""
     tnput = upxCh(tnput)
     if isinstance(tnput, (bytes, bytearray)):
         tnput += xPad
         return tnput
+    # The exact original formula
     return [(b * 8 * 8 * 8 * 0.00000001) / 64 for b in tnput]
 
-## [8] Loop Replacement
+## Loop Replacement
 def loop(func, *args, **kwargs):
-    """Replaces lambda for UI event callbacks.
-
-    Used by: skin.py, editor.py
-    Purpose: keeps button and action functions readable and safe.
-
-    Example:
-        button = Button(command=loop(save_file, path))
-    """
+    """Replaces lambda for UI event callbacks."""
     def inner():
         return func(*args, **kwargs)
     return inner
 
-## [9] xFile Path Resolution
+## xFile Path Resolution
 def resolve_path(path=None, xFileID=None):
-    """Resolves file path for .x creation or read.
-
-    Used by: app.py, editor.py
-    Purpose: creates consistent paths for user/system file storage.
-
-    Example:
-        resolve_path(xFileID="creator") → "creator.x"
-    """
+    """Resolves file path for .x creation or read."""
     if path:
         return path
     if xFileID:
         return xFileID if xFileID.endswith(".x") else f"{xFileID}.x"
     return ".x"
 
-## [10] Container File Structure
+## Container File Structure
 class xCnt:
     """
       - id: File Name or xFileID or ID
       - flote: Float reference (xAt)
       - sym: character map (xCh['sym'])
       - bytes: raw stored data
-
-    Example:
-        creator = xCnt("creator.x")
-        creator.bytes = compress(b"HELLO")
     """
     def __init__(self, xFileID: str = ""):
         self.id = xFileID
@@ -132,180 +135,147 @@ class xCnt:
         self.sym = xCh["sym"]
         self.bytes = b""
 
-# [10] bapX :: High-Level Pipelines
+# bapX :: High-Level Pipelines
 
 def xCreate(tnput):
-    """
-    xCreate() — full pipeline for new .x file content.
-    Stage: inout() → compress()
-    """
+    """xCreate() — full pipeline for new .x file content."""
     xCr1 = inout(tnput)
     xCr2 = compress(xCr1)
     return xCr2
 
-
 def xIn(tnput):
-    """
-    xIn() — processing for every user/creator input.
-    Stage: inout() → compress()
-    Same as xCreate, but used semantically for input flow.
-    """
+    """xIn() — processing for every user/creator input."""
     xIn1 = inout(tnput)
     xIn2 = compress(xIn1)
     return xIn2
 
-
 def xOut(tnput):
-    """
-    xOut() — output pipeline.
-    Stage: inout() only.
-    Does NOT compress. Does NOT modify floats multiple times.
-    """
+    """xOut() — output pipeline."""
     return inout(tnput)
 
 # ============================================================
 # xDB ENGINE — INSIDE library.py
-# Two Tables:
-#   xMdb  — conversation table (ABCD), newest-first
-#   xSdb  — settings table (A,B,C,D,E...), static rows
-#
-# No JSON
-# No dicts
-# No tokens
-# No external formats
-# All rows = bytes
-# All cells = bytes
-# Row separator = b"\n"
-# Cell separator = b" || "
 # ============================================================
 
 import time
 
-_XSEP = b" || "
-_XNL  = b"\n"
+# Renamed separators
+xCs = b" || " # Cell separator
+xRs  = b"\n"  # Row separator
 
 # ---------------------------
-# Low-level helpers
+# Low-level helpers (Renamed functions)
 # ---------------------------
-def _xdb_read(cnt_id: str) -> bytes:
+def xDBr(cnt_id: str) -> bytes:
     """Return raw bytes from .x container."""
     return xCnt(cnt_id).bytes or b""
 
-def _xdb_write(cnt_id: str, raw: bytes):
+def xDBw(xFileID: str, raw: bytes):
     """Write using full Do pipeline."""
-    cnt = xCnt(cnt_id)
+    cnt = xCnt(xFileID)
     try:
         cnt.bytes = xCreate(xIn(raw))
     except:
         cnt.bytes = raw
 
-def _xdb_split_rows(raw: bytes):
+def xDBaro(raw: bytes):
+    """Array of Rows: Splits raw bytes into a list of row bytes."""
     if not raw:
         return []
-    return [r for r in raw.split(_XNL) if r.strip() != b""]
+    return [r for r in raw.split(xRs) if r.strip() != b""]
 
-def _xdb_split_cells(row: bytes):
-    return row.split(_XSEP)
+def xDBacl(row: bytes):
+    """Array of Cells: Splits a row of bytes into a list of cell bytes."""
+    return row.split(xCs)
 
-def _xdb_join_cells(cells: list):
-    return _XSEP.join(cells)
+def xDBjcl(cells: list):
+    """Join Cells: Joins a list of cell bytes into a single row byte string."""
+    return xCs.join(cells)
 
-def _xdb_join_rows(rows: list):
+def xDBjro(rows: list):
+    """Join Rows: Joins a list of row bytes into a single raw byte string."""
     if not rows:
         return b""
-    return _XNL.join(rows) + _XNL
+    return xRs.join(rows) + xRs
 
 def _now_b():
+    # Uses the universal input handler 'b()' defined above
     return b(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
 
 # ============================================================
 # xMdb — Conversation Table
-# Columns: A(timestamp), B(attachment), C(purpose_words), D(sentence)
 # ============================================================
 
 def xMdb_read(username: str):
-    """
-    Returns list of rows → [[A,B,C,D], ...]
-    """
-    raw = _xdb_read(username)
+    """Returns list of rows → [[A,B,C,D], ...]"""
+    raw = xDBr(username)
     out = []
-    for r in _xdb_split_rows(raw):
-        c = _xdb_split_cells(r)
+    for r in xDBaro(raw):
+        c = xDBacl(r)
         while len(c) < 4:
             c.append(b"")
         out.append(c)
     return out
 
 def xMdb_insert(username: str, A: bytes, B: bytes, C: bytes, D: bytes):
-    """
-    Insert at TOP (newest-first).
-    """
-    old = _xdb_split_rows(_xdb_read(username))
-    new = _xdb_join_cells([A,B,C,D])
+    """Insert at TOP (newest-first)."""
+    old = xDBaro(xDBr(username))
+    new = xDBjcl([A,B,C,D])
     rows = [new] + old
-    _xdb_write(username, _xdb_join_rows(rows))
+    xDBw(username, xDBjro(rows))
 
 def xMdb_purge_24h(username: str):
-    """
-    Remove rows older than 24h.
-    """
+    """Remove rows older than 24h."""
     now = time.time()
     keep = []
-    for r in _xdb_split_rows(_xdb_read(username)):
-        c = _xdb_split_cells(r)
+    for r in xDBaro(xDBr(username)):
+        c = xDBacl(r)
         if not c:
             continue
         try:
-            ts = c[0].decode(errors="ignore")
+            ts = c.decode(errors="ignore")
             t  = time.mktime(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
         except:
             keep.append(r)
             continue
         if now - t <= 86400:
             keep.append(r)
-    _xdb_write(username, _xdb_join_rows(keep))
+    xDBw(username, xDBjro(keep))
 
 # ============================================================
 # xSdb — Settings Table (static rows)
-# Columns: A(key), B,C,D,E... (values)
 # ============================================================
 
 def xSdb_read(creator_id: str="creator"):
-    """
-    Returns rows as [[Akey, Bval, Cval, ...]]
-    """
-    raw = _xdb_read(creator_id)
+    """Returns rows as [[Akey, Bval, Cval, ...]]"""
+    raw = xDBr(creator_id)
     out = []
-    for r in _xdb_split_rows(raw):
-        out.append(_xdb_split_cells(r))
+    for r in xDBaro(raw):
+        out.append(xDBacl(r))
     return out
 
 def xSdb_update(creator_id: str, key: bytes, values: list):
-    """
-    Update existing A==key row OR append new row.
-    """
-    rows = _xdb_split_rows(_xdb_read(creator_id))
+    """Update existing A==key row OR append new row."""
+    rows = xDBaro(xDBr(creator_id))
     new_rows = []
     found = False
 
     for r in rows:
-        c = _xdb_split_cells(r)
+        c = xDBacl(r)
         if c and c[0] == key:
-            new_rows.append(_xdb_join_cells([key] + values))
+            new_rows.append(xDBjcl([key] + values))
             found = True
         else:
             new_rows.append(r)
 
     if not found:
-        new_rows.append(_xdb_join_cells([key] + values))
+        new_rows.append(xDBjcl([key] + values))
 
-    _xdb_write(creator_id, _xdb_join_rows(new_rows))
+    xDBw(creator_id, xDBjro(new_rows))
 
 def xSdb_find_prefix(creator_id: str, prefix: bytes):
-    """
-    Returns rows where A starts with prefix.
-    """
-    return [r for r in xSdb_read(creator_id) if r and r[0].startswith(prefix)]
+    """Returns rows where A starts with prefix."""
+    return [r for r in xSdb_read(creator_id) if r and r.startswith(prefix)]
 
 # ============================================================
 # Cell builder
@@ -327,37 +297,37 @@ def xcell(txt: str) -> bytes:
 #
 # Function Overview:
 #
-# [1] xCh
+# xCh
 #     A character mapping table updated through update_sym().
 #     Whenever new characters are found during input or compression,
 #     they are automatically appended to xCh["sym"].
 #
-# [2] XO_padding
+# XO_padding
 #     8-byte “X” padding added during input() and compress()
 #     to maintain byte alignment within the float field.
 #
-# [3] xAt
+# xAt
 #     Atomic float field controlling numeric binary float.
-#     Every computation aligns to [8, 8, 8, 8, 16] dimensions.
+#     Every computation aligns to dimensions.
 #
-# [4] sym
+# sym
 #     Identity rule used across all transformations:
 #     each character, byte, and float must remain equal after each stage.
 #
-# [5] x()
+# x()
 #     A simple pair generator, similar to Python’s zip(),
 #     used for operating on multiple character sequences together.
 #
-# [6] input()
+# input()
 #     Stage 1 — Processes data entry, adds byte padding,
 #     aligns numeric floats, and ensures all characters are mapped.
 #
-# [7] compress()
+# compress()
 #     Stage 2 — Applies compression to numeric data using xAt floats.
 #     The compression formula: (b * 8 * 8 * 8 * 0.00000001) / 64
 #     Folds numeric values while keeping character mapping intact.
 #
-# [8] output()
+# output()
 #     Stage 3 — Rebalances final field for consistency using (b * 8) / 8.
 #     Confirms all character and float positions match the input mapping.
 #
