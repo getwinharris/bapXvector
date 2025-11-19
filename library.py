@@ -46,12 +46,7 @@ xPad = b"X" * 8  # 8-byte padding for all data operations
 ## Atomic Structure
 FIELD = xAt = [8, 8, 8, 8, 16]  # 5D atomic float grid — numeric field balance
 sym = "A == A"           # identity rule for character and byte equality
-byte = 8                    # 8-bit base constant (byte)
-
-def b(raw):
-    """Universal input handler: raw input passthrough (bytes/bytearray expected)."""
-    return raw
-
+b = 8                    # 8-bit base constant (byte)
 
 # Used by: library.py, xformat.py, brain.py
 # Purpose: foundational constants for compression, input, and file balance.
