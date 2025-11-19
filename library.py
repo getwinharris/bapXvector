@@ -132,14 +132,186 @@ class xCnt:
         self.sym = xCh["sym"]
         self.bytes = b""
 
-## [11] Stage Summary
-# - input() → align and map new characters (Stage 1 & 3)
-# - compress() → fold floats to x8D formula (Stage 2)
-# - loop() → callback bridge for UI/IDE
-# - resolve_path() → manage .x file naming
-# - xCnt → store each xFile as atomic structure
-# All functions are self-contained; no UTF, JSON, or checksum dependencies.
+# [10] bapX :: High-Level Pipelines
 
+def xCreate(tnput):
+    """
+    xCreate() — full pipeline for new .x file content.
+    Stage: inout() → compress()
+    """
+    xCr1 = inout(tnput)
+    xCr2 = compress(xCr1)
+    return xCr2
+
+
+def xIn(tnput):
+    """
+    xIn() — processing for every user/creator input.
+    Stage: inout() → compress()
+    Same as xCreate, but used semantically for input flow.
+    """
+    xIn1 = inout(tnput)
+    xIn2 = compress(xIn1)
+    return xIn2
+
+
+def xOut(tnput):
+    """
+    xOut() — output pipeline.
+    Stage: inout() only.
+    Does NOT compress. Does NOT modify floats multiple times.
+    """
+    return inout(tnput)
+
+# ============================================================
+# xDB ENGINE — INSIDE library.py
+# Two Tables:
+#   xMdb  — conversation table (ABCD), newest-first
+#   xSdb  — settings table (A,B,C,D,E...), static rows
+#
+# No JSON
+# No dicts
+# No tokens
+# No external formats
+# All rows = bytes
+# All cells = bytes
+# Row separator = b"\n"
+# Cell separator = b" || "
+# ============================================================
+
+import time
+
+_XSEP = b" || "
+_XNL  = b"\n"
+
+# ---------------------------
+# Low-level helpers
+# ---------------------------
+def _xdb_read(cnt_id: str) -> bytes:
+    """Return raw bytes from .x container."""
+    return xCnt(cnt_id).bytes or b""
+
+def _xdb_write(cnt_id: str, raw: bytes):
+    """Write using full Do pipeline."""
+    cnt = xCnt(cnt_id)
+    try:
+        cnt.bytes = xCreate(xIn(raw))
+    except:
+        cnt.bytes = raw
+
+def _xdb_split_rows(raw: bytes):
+    if not raw:
+        return []
+    return [r for r in raw.split(_XNL) if r.strip() != b""]
+
+def _xdb_split_cells(row: bytes):
+    return row.split(_XSEP)
+
+def _xdb_join_cells(cells: list):
+    return _XSEP.join(cells)
+
+def _xdb_join_rows(rows: list):
+    if not rows:
+        return b""
+    return _XNL.join(rows) + _XNL
+
+def _now_b():
+    return b(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+
+# ============================================================
+# xMdb — Conversation Table
+# Columns: A(timestamp), B(attachment), C(purpose_words), D(sentence)
+# ============================================================
+
+def xMdb_read(username: str):
+    """
+    Returns list of rows → [[A,B,C,D], ...]
+    """
+    raw = _xdb_read(username)
+    out = []
+    for r in _xdb_split_rows(raw):
+        c = _xdb_split_cells(r)
+        while len(c) < 4:
+            c.append(b"")
+        out.append(c)
+    return out
+
+def xMdb_insert(username: str, A: bytes, B: bytes, C: bytes, D: bytes):
+    """
+    Insert at TOP (newest-first).
+    """
+    old = _xdb_split_rows(_xdb_read(username))
+    new = _xdb_join_cells([A,B,C,D])
+    rows = [new] + old
+    _xdb_write(username, _xdb_join_rows(rows))
+
+def xMdb_purge_24h(username: str):
+    """
+    Remove rows older than 24h.
+    """
+    now = time.time()
+    keep = []
+    for r in _xdb_split_rows(_xdb_read(username)):
+        c = _xdb_split_cells(r)
+        if not c:
+            continue
+        try:
+            ts = c[0].decode(errors="ignore")
+            t  = time.mktime(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
+        except:
+            keep.append(r)
+            continue
+        if now - t <= 86400:
+            keep.append(r)
+    _xdb_write(username, _xdb_join_rows(keep))
+
+# ============================================================
+# xSdb — Settings Table (static rows)
+# Columns: A(key), B,C,D,E... (values)
+# ============================================================
+
+def xSdb_read(creator_id: str="creator"):
+    """
+    Returns rows as [[Akey, Bval, Cval, ...]]
+    """
+    raw = _xdb_read(creator_id)
+    out = []
+    for r in _xdb_split_rows(raw):
+        out.append(_xdb_split_cells(r))
+    return out
+
+def xSdb_update(creator_id: str, key: bytes, values: list):
+    """
+    Update existing A==key row OR append new row.
+    """
+    rows = _xdb_split_rows(_xdb_read(creator_id))
+    new_rows = []
+    found = False
+
+    for r in rows:
+        c = _xdb_split_cells(r)
+        if c and c[0] == key:
+            new_rows.append(_xdb_join_cells([key] + values))
+            found = True
+        else:
+            new_rows.append(r)
+
+    if not found:
+        new_rows.append(_xdb_join_cells([key] + values))
+
+    _xdb_write(creator_id, _xdb_join_rows(new_rows))
+
+def xSdb_find_prefix(creator_id: str, prefix: bytes):
+    """
+    Returns rows where A starts with prefix.
+    """
+    return [r for r in xSdb_read(creator_id) if r and r[0].startswith(prefix)]
+
+# ============================================================
+# Cell builder
+# ============================================================
+def xcell(txt: str) -> bytes:
+    return b(txt)
 ## ============================================================
 # bapX :: library.py — CHARACTER MAPPING AND FLOAT FIELD CORE (Knowledge Base)
 # ------------------------------------------------------------
